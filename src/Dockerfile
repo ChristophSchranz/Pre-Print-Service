@@ -5,15 +5,19 @@ MAINTAINER Christoph Schranz <christoph.schranz@salzburgresearch.at>
 # If the problem remains, check the dns settings in /etc/docker/daemon.json
 # RUN apt-get update
 RUN apt-get update
-#  apt-get install -y --no-install-recommends \
-#  python3-numpy && \
-#  apt-get clean && \
-#rm -rf /var/lib/apt/lists/*
+  apt-get install -y --no-install-recommends \
+  git && \
+  apt-get clean && \
+rm -rf /var/lib/apt/lists/*
 
 # Copy the content of this folder into the hosts home directory and install the requirements first.
 ADD requirements.txt .
 RUN pip install -r requirements.txt
 ADD . .
+
+RUN cd src && \
+  git clone https://github.com/ChristophSchranz/Tweaker-3
+
 
 # setup proper configuration
 ENV PYTHONPATH .
