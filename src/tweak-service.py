@@ -25,67 +25,50 @@ def tweak_file():
             curpath = os.path.dirname(os.path.abspath(__file__))+os.sep
 
             # Find out if the file is to convert or to tweak
-            command = list(request.files.keys())[0]
-            print("command", command)
+            command = request.form["command"]
+            output_format = request.form["output"]
+            print("command", command, "output_format", output_format)
 
-            if command == "file2convert":
-                req_file = request.files['file2convert']
-                app.logger.debug("file2convert: %s", req_file)
-                
-                filename = secure_filename(req_file.filename)
-                app.logger.info("secure filename: %s", filename)
-                tmp = tempfile.gettempdir() + os.path.sep + str(time.time()) + "_tmp_" + filename
-                req_file.save(tmp)
-                app.logger.info("saved file %s", tmp)
-                ret = os.popen("python3 {}Tweaker-3{}Tweaker.py -i {} -c -o {}tmpoutfile.stl"
-                                        .format(curpath, os.sep, tmp, curpath))
-                if ret.read() == "":
-                    print("Tweaking was successful")
-                else:
-                    print("Tweaking was executed with warning {}".format(ret.read()))
+            cmd_map = dict({"Tweak": "",
+                            "extendedTweak": "-x",
+                            "extendedTweakVol": "-x -vol",
+                            "Convert": "-c",
+                            "ascii STL": "-t asciistl",
+                            "binary STL": "-t binarystl"})
 
-                outfile = open("{}tmpoutfile.stl".format(curpath), "rb")
-                output_content = outfile.read()
-                os.remove(tmp)
-                os.remove("{}tmpoutfile.stl".format(curpath))
-                app.logger.info("removed temporary file %s", tmp)
-                try:
-                    print("tweaked length: %s", len(output_content))
-                except:
-                    print("tweaked length: ValueError: View function did not return a response")
+            req_file = request.files['file']
+            app.logger.debug("file: %s", req_file)
 
-            elif command == "file2tweak":
-                req_file = request.files['file2tweak']
-                app.logger.debug("file: %s", req_file)
-            
-                filename = secure_filename(req_file.filename)
-                app.logger.info("secure filename: %s", filename)
-                # tmp = tempfile.gettempdir() + os.path.sep + str(time.time()) + "_tmp_" + filename
-                tmp = curpath + os.path.sep + str(time.time()) + "_tmp_" + filename
-                req_file.save(tmp)
-                app.logger.info("saved file %s", tmp)
-                print("Saved temp file as ", tmp)
-                
-                ret = os.popen("python3 {}Tweaker-3{}Tweaker.py -i {} -x -o {}tmpoutfile.stl"
-                                        .format(curpath, os.sep, tmp, curpath))
-                if len(str(ret.read()).replace("\n", "")) == 0:
-                    print("Tweaking was successful")
-                else:
-                    print("Tweaking was executed with warning {}".format(ret.read()))
+            filename = secure_filename(req_file.filename)
+            app.logger.info("secure filename: %s", filename)
+            tmp = tempfile.gettempdir() + os.path.sep + str(time.time()) + "_tmp_" + filename
+            req_file.save(tmp)
+            app.logger.info("saved file %s", tmp)
+            print("Saved temp file as ", tmp)
 
-                outfile = open("{}tmpoutfile.stl".format(curpath, os.sep), "rb")
-                output_content = outfile.read()
-                
-                os.remove(tmp)
-                os.remove("{}tmpoutfile.stl".format(curpath, os.sep))
-                print("removed temporary file %s", tmp)
-                try:
-                    print("tweaked length: {}".format(len(output_content)))
-                except:
-                    print("tweaked length: ValueError: View function did not return a response")
+            cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {input} {cmd} {output} -o {curpath}tmpoutfile.stl" \
+                    .format(curpath=curpath, sep=os.sep, input=tmp, cmd=cmd_map[command],
+                            output=cmd_map[output_format])
+            print("command:", cmd)
 
+            ret = os.popen(cmd)
+
+            if ret.read() == "":
+                print("Tweaking was successful")
             else:
-                print("Input form not found: {}".format(command))
+                print("Tweaking was executed with warning {}".format(ret.read()))
+
+            outfile = open("{}tmpoutfile.stl".format(curpath), "rb")
+            output_content = outfile.read()
+            os.remove(tmp)
+            os.remove("{}tmpoutfile.stl".format(curpath))
+            app.logger.info("removed temporary file %s", tmp)
+            try:
+                print("tweaked length: %s", len(output_content))
+            except:
+                print("tweaked length: ValueError: View function did not return a response")
+
+
 
             # handling the download of the binary data
             if request.headers.get('Accept') == "text/plain":
