@@ -22,4 +22,4 @@ RUN git clone https://github.com/ChristophSchranz/Tweaker-3 src/Tweaker-3
 # setup proper configuration
 ENV PYTHONPATH .
 
-ENTRYPOINT ["python", "tweak-service.py"]
+ENTRYPOINT ["python", "/src/tweak-service.py"]

@@ -25,6 +25,7 @@ def tweak_file():
             # set current path or use /src/, as docker use that path but doesn't know __file__
             curpath = os.path.dirname(os.path.abspath(__file__)) + os.sep
             if len(curpath) <= 2:
+                print("__file__ too short, setting curpath hard.")
                 curpath = "/src/"
 
             # Find out if the file is to convert or to tweak
