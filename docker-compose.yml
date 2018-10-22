@@ -2,11 +2,11 @@ version: '3.4'
 
 services:
   tweaker:
-#    image: 127.0.0.1:5001/tweaker
+    image: 127.0.0.1:5001/tweaker
     build:
       context: src/
     ports:
-      - 5000:5000
+      - 2304:2304
     restart: always
     deploy:
       placement:

@@ -22,7 +22,9 @@ def tweak_file():
     try:
         if request.method == 'POST':
             app.logger.debug("request: %s", request)
-            curpath = os.path.dirname(os.path.abspath(__file__))+os.sep
+            curpath = os.path.dirname(os.path.abspath(__file__)) + os.sep
+            if curpath == "/":
+                curpath = "/src/"
 
             # Find out if the file is to convert or to tweak
             command = request.form["command"]
@@ -68,8 +70,6 @@ def tweak_file():
             except:
                 print("tweaked length: ValueError: View function did not return a response")
 
-
-
             # handling the download of the binary data
             if request.headers.get('Accept') == "text/plain":
                 response = Response(output_content)
@@ -91,7 +91,7 @@ def tweak_file():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='STL Tweaking Service.')
-    parser.add_argument("-p", dest="port", help="port to listen on default: 5000", default="5000")
+    parser.add_argument("-p", dest="port", help="port to listen on default: 2304", default="2304")
     parser.add_argument("-l", dest="logfile", help="logfile, default: None", default=None)
     args = parser.parse_args()
 
