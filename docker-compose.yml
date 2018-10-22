@@ -9,13 +9,13 @@ services:
       - 2304:2304
     restart: always
     deploy:
-      placement:
-        constraints: [node.role == worker]
+#      placement:
+#        constraints: [node.role == worker]
       resources:
         limits:
           cpus: "1"
           memory: 8G
-      replicas: 1
+      replicas: 3
       update_config:
         parallelism: 2
         delay: 10s

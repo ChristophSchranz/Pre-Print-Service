@@ -22,8 +22,9 @@ def tweak_file():
     try:
         if request.method == 'POST':
             app.logger.debug("request: %s", request)
+            # set current path or use /src/, as docker use that path but doesn't know __file__
             curpath = os.path.dirname(os.path.abspath(__file__)) + os.sep
-            if curpath == "/":
+            if len(curpath) <= 2:
                 curpath = "/src/"
 
             # Find out if the file is to convert or to tweak
