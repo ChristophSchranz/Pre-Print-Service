@@ -13,13 +13,13 @@ RUN apt-get update
 # Copy the content of this folder into the hosts home directory and install the requirements first.
 ADD requirements.txt .
 RUN pip install -r requirements.txt
-ADD . .
+ADD . /.
 RUN mkdir /tmp || true
 
-RUN git clone https://github.com/ChristophSchranz/Tweaker-3 src/Tweaker-3
+RUN git clone https://github.com/ChristophSchranz/Tweaker-3 /src/Tweaker-3
 
 
 # setup proper configuration
-ENV PYTHONPATH .
+ENV PYTHONPATH /src/.
 
-ENTRYPOINT ["python", "/src/tweak-service.py"]
+ENTRYPOINT ["python", "tweak-service.py"]
