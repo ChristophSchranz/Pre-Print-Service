@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os
+import os, sys
 import requests
 from flask import Flask, flash, request, redirect, url_for, Response, render_template
 from werkzeug.utils import secure_filename
@@ -15,10 +15,13 @@ app = Flask(__name__)
 # If the file size is over 100MB, tweaking would lack due to performance issues.
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'stl', '3mf'}
-UPLOAD_FOLDER = 'uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['UPLOAD_FOLDER'] = "uploads"
+app.config['PROFILE_FOLDER'] = 'profiles'
+app.config['SLIC3R_PATH'] = "/home/chris/Documents/software/Slic3r/Slic3rPE-1.41.2+linux64-full-201811221508/slic3r"
+
 OCTOPRINT_URL = "http://il043/"
 OCTOPRINT_APIKEY = "?apikey=1E7A2CA92550406381A176D9C8C8B0C2"
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -124,8 +127,8 @@ def tweak_slice_file():
 
             # Find out if the file is to convert or to tweak
             command = request.form["command"]
-            output_format = request.form["output"]
-            app.logger.debug("command: {}, output_format: {}".format(command, output_format))
+            # output_format = request.form["profile"]
+            # app.logger.debug("command: {}, output_format: {}".format(command, output_format))
 
             cmd_map = dict({"Tweak": "",
                             "extendedTweak": "-x",
@@ -150,10 +153,11 @@ def tweak_slice_file():
             uploaded_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             app.logger.info("saved file {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
 
+            # Tweak the file
             cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {curpath}{upload_folder}{sep}{input} {cmd} " \
                   "{output} -o {curpath}{upload_folder}{sep}tweaked_{input}"\
                 .format(curpath=curpath, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
-                        cmd=cmd_map[command], output=cmd_map[output_format])
+                        cmd=cmd_map[command], output=cmd_map["binary STL"])
 
             app.logger.info("command: {}".format(cmd))
             ret = os.popen(cmd)
@@ -163,18 +167,34 @@ def tweak_slice_file():
             else:
                 app.logger.error("Tweaking was executed with the warning: {}.".format(ret.read()))
 
-            # Upload a file via API
+            # Slice the file
+            print(request.form["profile"])
+            profile = app.config['PROFILE_FOLDER'] + os.sep + request.form["profile"]  # "profiles/profile_015mm_none.ini"
+            gcode_path = app.config['UPLOAD_FOLDER'] + os.sep + filename
+            gcode_path = gcode_path.replace(".stl", profile.split(os.sep)[-1].replace("profile_", "_").replace(".ini", ".gcode"))
+
+            cmd = "{SLIC3R_PATH} {UPLOAD_FOLDER}{sep}tweaked_{filename} --load {profile} -o {gcode_path}".format(
+                sep=os.sep, SLIC3R_PATH=app.config['SLIC3R_PATH'], UPLOAD_FOLDER=app.config['UPLOAD_FOLDER'],
+                                           filename=filename, profile=profile, gcode_path=gcode_path)
+            print(cmd)
+            ret = os.popen(cmd)
+            print(ret.read())
+            if "Done. Process took" in ret.read():
+                app.logger.info("Slicing was successful")
+            else:
+                app.logger.error("Slicing was executed with the warning: {}.".format(ret.read()))
+
+            # Upload a file via API to octoprint
             # find the apikey in octoprint server, settings, access control
             url = "{}api/files/local{}".format(OCTOPRINT_URL, OCTOPRINT_APIKEY)
-            outfile = "{curpath}{upload_folder}{sep}tweaked_{input}"\
-                .format(curpath=curpath, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename)
+            outfile = "{curpath}{gcode_path}".format(curpath=curpath, gcode_path=gcode_path)
             files = {'file': open(outfile, 'rb')}
             r = requests.post(url, files=files)
             app.logger.info("loaded with code '{}': {}".format(r.status_code, r.json()))
 
             return redirect(OCTOPRINT_URL)
         else:
-            return render_template('tweak.html')
+            return render_template('tweak_slice.html', profiles=os.listdir(app.config['PROFILE_FOLDER']))
     except RequestEntityTooLarge:
         abort(413)
 
