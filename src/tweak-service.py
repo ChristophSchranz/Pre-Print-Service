@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import requests
 from flask import Flask, flash, request, redirect, url_for, Response, render_template
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import abort, RequestEntityTooLarge
@@ -16,14 +17,15 @@ app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'stl', '3mf'}
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
+OCTOPRINT_URL = "http://il043/"
+OCTOPRINT_APIKEY = "?apikey=1E7A2CA92550406381A176D9C8C8B0C2"
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 @app.route("/tweak", methods=['GET', 'POST'])
-def tweak_slice_file():
+def tweak_file():
     try:
         if request.method == 'POST':
             app.logger.debug("request: %s", request)
@@ -104,35 +106,77 @@ def tweak_slice_file():
         abort(413)
 
 
-@app.route('/upload', methods=['GET', 'POST'])
-def upload_file():
-    if request.method == 'POST':
-        # check if the post request has the file part
-        if 'file' not in request.files:
-            flash('No file part')
-            return redirect(request.url)
-        file = request.files['file']
+@app.route("/upload-octoprint", methods=['GET', 'POST'])
+def tweak_slice_file():
+    try:
+        if request.method == 'POST':
+            app.logger.debug("request: %s", request)
+            # check if the post request has a file
+            if 'file' not in request.files:
+                flash('No file in request')
+                return redirect(request.url)
 
-        # if user does not select file, browser also
-        # submit an empty part without filename
-        if file.filename == '':
-            flash('No selected file')
-            return redirect(request.url)
+            # set current path or use /src/, as docker use that path but doesn't know __file__
+            curpath = os.path.dirname(os.path.abspath(__file__)) + os.sep
+            if len(curpath) <= 2:
+                app.logger.error("__file__ too short, setting curpath hard.")
+                curpath = "/src/"
 
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
+            # Find out if the file is to convert or to tweak
+            command = request.form["command"]
+            output_format = request.form["output"]
+            app.logger.debug("command: {}, output_format: {}".format(command, output_format))
 
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            return redirect(url_for('upload_file', file=filename))
-    return '''
-    <!doctype html>
-    <title>Upload new File</title>
-    <h1>Upload new File</h1>
-    <form method=post enctype=multipart/form-data>
-      <input type=file name=file>
-      <input type=submit value=Upload>
-    </form>
-    '''
+            cmd_map = dict({"Tweak": "",
+                            "extendedTweak": "-x",
+                            "extendedTweakVol": "-x -vol",
+                            "Convert": "-c",
+                            "ascii STL": "-t asciistl",
+                            "binary STL": "-t binarystl"})
+
+            # manage the file
+            uploaded_file = request.files['file']
+            app.logger.debug("file: {}".format(uploaded_file))
+            # if no file was selected, submit an empty one
+            if uploaded_file.filename == '':
+                flash('No selected file')
+                return redirect(request.url)
+            if not (uploaded_file and allowed_file(uploaded_file.filename)):
+                flash('Invalid file')
+                return redirect(request.url)
+
+            filename = secure_filename(uploaded_file.filename)
+            app.logger.info("secure filename: {}".format(filename))
+            uploaded_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            app.logger.info("saved file {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
+
+            cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {curpath}{upload_folder}{sep}{input} {cmd} " \
+                  "{output} -o {curpath}{upload_folder}{sep}tweaked_{input}"\
+                .format(curpath=curpath, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
+                        cmd=cmd_map[command], output=cmd_map[output_format])
+
+            app.logger.info("command: {}".format(cmd))
+            ret = os.popen(cmd)
+
+            if ret.read() == "":
+                app.logger.info("Tweaking was successful")
+            else:
+                app.logger.error("Tweaking was executed with the warning: {}.".format(ret.read()))
+
+            # Upload a file via API
+            # find the apikey in octoprint server, settings, access control
+            url = "{}api/files/local{}".format(OCTOPRINT_URL, OCTOPRINT_APIKEY)
+            outfile = "{curpath}{upload_folder}{sep}tweaked_{input}"\
+                .format(curpath=curpath, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename)
+            files = {'file': open(outfile, 'rb')}
+            r = requests.post(url, files=files)
+            app.logger.info("loaded with code '{}': {}".format(r.status_code, r.json()))
+
+            return redirect(OCTOPRINT_URL)
+        else:
+            return render_template('tweak.html')
+    except RequestEntityTooLarge:
+        abort(413)
 
 
 if __name__ == "__main__":
