@@ -104,3 +104,5 @@ ENV/
 src/Tweaker3
 src/test.py
 src/tweak-service.py.save*
+src/profiles/*
+src/uploads/*
