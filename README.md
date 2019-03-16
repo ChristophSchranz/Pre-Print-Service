@@ -16,6 +16,7 @@ Using `docker-compose`:
 ```bash
 git clone https://github.com/ChristophSchranz/Pre-Print-Service
 cd /Pre-Print-Service
+git clone https://github.com/ChristophSchranz/Tweaker-3 src/Tweaker-3
 ./start_service_local.sh
 ```
 Use the service on [localhost:2304](0.0.0.0:2304).
