@@ -1,10 +1,14 @@
 version: '3.4'
 
 services:
-  tweaker:
-    image: 127.0.0.1:5001/tweaker
+  pre-print-service:
+    image: 127.0.0.1:5001/pre-print-service
     build:
       context: src/
+      args:
+        - SLIC3R_URL=https://github.com/prusa3d/Slic3r/releases/download/version_1.41.3/Slic3rPE-1.41.3+linux64-full-201902121303.tar.bz2
+#    env_file:
+#      - .env
     ports:
       - 2304:2304
     restart: always

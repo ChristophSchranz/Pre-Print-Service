@@ -1,3 +1,4 @@
-flask==0.12.3
-werkzeug==0.12
-numpy==1.15.2
+Flask==1.0.2
+Werkzeug==0.14.1
+numpy==1.16.2
+requests==2.21.0

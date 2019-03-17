@@ -14,10 +14,21 @@ app = Flask(__name__)
 
 # If the file size is over 100MB, tweaking would lack due to performance issues.
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
-ALLOWED_EXTENSIONS = {'stl', '3mf'}
-app.config['UPLOAD_FOLDER'] = "uploads"
-app.config['PROFILE_FOLDER'] = 'profiles'
-app.config['SLIC3R_PATH'] = "/home/chris/Documents/software/Slic3r/Slic3rPE-1.41.2+linux64-full-201811221508/slic3r"
+ALLOWED_EXTENSIONS = {'stl', '3mf', 'obj'}
+
+# set current path or use /src/, as docker use that path but doesn't know __file__
+CURPATH = os.path.dirname(os.path.abspath(__file__)) + os.sep
+if len(CURPATH) <= 2:
+    app.logger.error("__file__ too short, setting curpath hard.")
+    CURPATH = "/src/"
+
+app.config['UPLOAD_FOLDER'] = CURPATH+"uploads"
+app.config['PROFILE_FOLDER'] = CURPATH+'profiles'
+app.config['SLIC3R_PATHS'] = ["/Slic3r/slic3r-dist/slic3r", "/home/chris/Documents/software/Slic3r/Slic3rPE-1.41.2+linux64-full-201811221508/slic3r"]
+for path in app.config['SLIC3R_PATHS']:
+    if os.path.isfile(path):
+        app.config['SLIC3R_PATH'] = path
+        break
 
 OCTOPRINT_URL = "http://il043/"
 OCTOPRINT_APIKEY = "?apikey=1E7A2CA92550406381A176D9C8C8B0C2"
@@ -37,12 +48,6 @@ def tweak_file():
                 flash('No file in request')
                 return redirect(request.url)
 
-            # set current path or use /src/, as docker use that path but doesn't know __file__
-            curpath = os.path.dirname(os.path.abspath(__file__)) + os.sep
-            if len(curpath) <= 2:
-                app.logger.error("__file__ too short, setting curpath hard.")
-                curpath = "/src/"
-
             # Find out if the file is to convert or to tweak
             command = request.form["command"]
             output_format = request.form["output"]
@@ -57,7 +62,6 @@ def tweak_file():
 
             # manage the file
             uploaded_file = request.files['file']
-            app.logger.debug("file: {}".format(uploaded_file))
             # if no file was selected, submit an empty one
             if uploaded_file.filename == '':
                 flash('No selected file')
@@ -67,16 +71,16 @@ def tweak_file():
                 return redirect(request.url)
 
             filename = secure_filename(uploaded_file.filename)
-            app.logger.info("secure filename: {}".format(filename))
+            app.logger.info("Uploaded new file: {}".format(filename))
             uploaded_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            app.logger.info("saved file {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
+            app.logger.info("saved file to {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
 
             cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {curpath}{upload_folder}{sep}{input} {cmd} " \
                   "{output} -o {curpath}{upload_folder}{sep}tweaked_{input}"\
-                .format(curpath=curpath, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
+                .format(curpath=CURPATH, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
                         cmd=cmd_map[command], output=cmd_map[output_format])
 
-            app.logger.info("command: {}".format(cmd))
+            app.logger.info("command: '{}'".format(cmd))
             ret = os.popen(cmd)
 
             if ret.read() == "":
@@ -85,7 +89,7 @@ def tweak_file():
                 app.logger.error("Tweaking was executed with the warning: {}.".format(ret.read()))
 
             outfile = open("{curpath}{upload_folder}{sep}tweaked_{input}"
-                           .format(curpath=curpath, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'],
+                           .format(curpath=CURPATH, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'],
                                    input=filename), "rb")
             output_content = outfile.read()
             #
@@ -119,12 +123,6 @@ def tweak_slice_file():
                 flash('No file in request')
                 return redirect(request.url)
 
-            # set current path or use /src/, as docker use that path but doesn't know __file__
-            curpath = os.path.dirname(os.path.abspath(__file__)) + os.sep
-            if len(curpath) <= 2:
-                app.logger.error("__file__ too short, setting curpath hard.")
-                curpath = "/src/"
-
             # Find out if the file is to convert or to tweak
             command = request.form["command"]
             # output_format = request.form["profile"]
@@ -139,7 +137,6 @@ def tweak_slice_file():
 
             # manage the file
             uploaded_file = request.files['file']
-            app.logger.debug("file: {}".format(uploaded_file))
             # if no file was selected, submit an empty one
             if uploaded_file.filename == '':
                 flash('No selected file')
@@ -149,26 +146,26 @@ def tweak_slice_file():
                 return redirect(request.url)
 
             filename = secure_filename(uploaded_file.filename)
-            app.logger.info("secure filename: {}".format(filename))
+            app.logger.info("Uploaded new file: {}".format(filename))
             uploaded_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            app.logger.info("saved file {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
+            app.logger.info("Saved file to {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
 
             # Tweak the file
-            cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {curpath}{upload_folder}{sep}{input} {cmd} " \
-                  "{output} -o {curpath}{upload_folder}{sep}tweaked_{input}"\
-                .format(curpath=curpath, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
+            cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {upload_folder}{sep}{input} {cmd} " \
+                  "{output} -o {upload_folder}{sep}tweaked_{input}"\
+                .format(curpath=CURPATH, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
                         cmd=cmd_map[command], output=cmd_map["binary STL"])
 
-            app.logger.info("command: {}".format(cmd))
+            app.logger.info("command: '{}'".format(cmd))
             ret = os.popen(cmd)
-
-            if ret.read() == "":
+            response = ret.read()
+            if response == "":
                 app.logger.info("Tweaking was successful")
             else:
-                app.logger.error("Tweaking was executed with the warning: {}.".format(ret.read()))
+                app.logger.error("Tweaking was executed with the warning: {}.".format(response))
 
             # Slice the file
-            print(request.form["profile"])
+            app.logger.info("Using profile: {}".format(request.form["profile"]))
             profile = app.config['PROFILE_FOLDER'] + os.sep + request.form["profile"]  # "profiles/profile_015mm_none.ini"
             gcode_path = app.config['UPLOAD_FOLDER'] + os.sep + filename
             gcode_path = gcode_path.replace(".stl", profile.split(os.sep)[-1].replace("profile_", "_").replace(".ini", ".gcode"))
@@ -176,21 +173,21 @@ def tweak_slice_file():
             cmd = "{SLIC3R_PATH} {UPLOAD_FOLDER}{sep}tweaked_{filename} --load {profile} -o {gcode_path}".format(
                 sep=os.sep, SLIC3R_PATH=app.config['SLIC3R_PATH'], UPLOAD_FOLDER=app.config['UPLOAD_FOLDER'],
                                            filename=filename, profile=profile, gcode_path=gcode_path)
-            print(cmd)
+            app.logger.info(cmd)
             ret = os.popen(cmd)
-            print(ret.read())
-            if "Done. Process took" in ret.read():
+            response = ret.read()
+            if "Done. Process took" in response:
                 app.logger.info("Slicing was successful")
             else:
-                app.logger.error("Slicing was executed with the warning: {}.".format(ret.read()))
+                app.logger.error("Slicing was executed with the warning: {}.".format(response))
 
             # Upload a file via API to octoprint
             # find the apikey in octoprint server, settings, access control
             url = "{}api/files/local{}".format(OCTOPRINT_URL, OCTOPRINT_APIKEY)
-            outfile = "{curpath}{gcode_path}".format(curpath=curpath, gcode_path=gcode_path)
+            outfile = "{gcode_path}".format(gcode_path=gcode_path)
             files = {'file': open(outfile, 'rb')}
             r = requests.post(url, files=files)
-            app.logger.info("loaded with code '{}': {}".format(r.status_code, r.json()))
+            app.logger.info("Loaded to Octoprint server with code '{}': {}".format(r.status_code, r.json()))
 
             return redirect(OCTOPRINT_URL)
         else:
