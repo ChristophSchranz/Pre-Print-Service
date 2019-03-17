@@ -7,8 +7,8 @@ services:
       context: src/
       args:
         - SLIC3R_URL=https://github.com/prusa3d/Slic3r/releases/download/version_1.41.3/Slic3rPE-1.41.3+linux64-full-201902121303.tar.bz2
-#    env_file:
-#      - .env
+    env_file:
+      - config.env
     ports:
       - 2304:2304
     restart: always
@@ -19,7 +19,7 @@ services:
         limits:
           cpus: "1"
           memory: 8G
-      replicas: 3
+      replicas: 1
       update_config:
         parallelism: 2
         delay: 10s

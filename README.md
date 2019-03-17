@@ -1,8 +1,10 @@
 # Pre-Print-Service
 
-This Service Wraps the core functionalities of the
-[Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) and
-provides a Webservice on top of it.
+This service auto-rotates object files into its optimal alignment, slices it and 
+sends it to the [octoprint](https://octoprint.org/) server.
+
+The core functionalities are based on 
+[Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) and.
 
 ![Auto-rotation of a model](https://github.com/ChristophSchranz/Tweaker-3/blob/master/auto-rotation.png)
 
@@ -15,11 +17,18 @@ Using `docker-compose`:
 
 ```bash
 git clone https://github.com/ChristophSchranz/Pre-Print-Service
-cd /Pre-Print-Service
-git clone https://github.com/ChristophSchranz/Tweaker-3 src/Tweaker-3
+cd Pre-Print-Service
 ./start_service_local.sh
 ```
-Use the service on [localhost:2304](0.0.0.0:2304).
+Use the service on [localhost:2304/upload-octoprint](0.0.0.0:2304/upload-octoprint).
+
+Configure the service in the `config.env`:
+
+    OCTOPRINT_URL=http://192.168.48.44/
+    OCTOPRINT_APIKEY=1E7A2CA...
+
+The apikey can be found in your octoprint server under settings, 
+access control.
 
 
 ## Contents
@@ -97,3 +106,10 @@ Restart service with
 ```sudo service docker restart```
 
 or add your dns address as described above
+
+
+## Donation
+
+If this project helps you develop, you can give me a cup of coffee :) 
+
+[![More coffee, more code](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=RG7UBJMUNLMHN&source=url)

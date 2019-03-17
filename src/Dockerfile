@@ -50,7 +50,10 @@ RUN mkdir -p /home/slic3r/.local/share/
 
 ADD . /src/.
 
-RUN git clone https://github.com/ChristophSchranz/Tweaker-3 /src/Tweaker-3
+# Clone if Tweaker-3 doesn't exist, and pull.
+RUN true || git clone https://github.com/ChristophSchranz/Tweaker-3 /src/Tweaker-3 \
+  && cd /src/Tweaker-3 \
+  && git pull
 
 # setup proper configuration
 ENV PYTHONPATH /src/.
