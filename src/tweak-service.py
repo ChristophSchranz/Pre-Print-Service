@@ -30,7 +30,7 @@ for path in app.config['SLIC3R_PATHS']:
         app.config['SLIC3R_PATH'] = path
         break
 
-OCTOPRINT_URL = "http://il043/"
+OCTOPRINT_URL = "http://192.168.48.43/"
 OCTOPRINT_APIKEY = "?apikey=1E7A2CA92550406381A176D9C8C8B0C2"
 
 
