@@ -50,6 +50,8 @@ RUN mkdir -p /home/slic3r/.local/share/
 
 ADD . /src/.
 
+RUN git clone https://github.com/ChristophSchranz/Tweaker-3 /src/Tweaker-3
+
 # setup proper configuration
 ENV PYTHONPATH /src/.
 ENV WORKDIR /src/
