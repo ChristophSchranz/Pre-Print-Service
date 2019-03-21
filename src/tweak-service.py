@@ -76,8 +76,8 @@ def tweak_file():
             uploaded_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             app.logger.info("saved file to {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
 
-            cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {curpath}{upload_folder}{sep}{input} {cmd} " \
-                  "{output} -o {curpath}{upload_folder}{sep}tweaked_{input}"\
+            cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {upload_folder}{sep}{input} {cmd} " \
+                  "{output} -o {upload_folder}{sep}tweaked_{input}"\
                 .format(curpath=CURPATH, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
                         cmd=cmd_map[command], output=cmd_map[output_format])
 
@@ -89,7 +89,7 @@ def tweak_file():
             else:
                 app.logger.error("Tweaking was executed with the warning: {}.".format(ret.read()))
 
-            outfile = open("{curpath}{upload_folder}{sep}tweaked_{input}"
+            outfile = open("{upload_folder}{sep}tweaked_{input}"
                            .format(curpath=CURPATH, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'],
                                    input=filename), "rb")
             output_content = outfile.read()
