@@ -93,7 +93,7 @@ def tweak_file():
                            .format(curpath=CURPATH, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'],
                                    input=filename), "rb")
             output_content = outfile.read()
-            #
+
             # try:
             #     print("tweaked length: %s", len(output_content))
             # except ValueError:
