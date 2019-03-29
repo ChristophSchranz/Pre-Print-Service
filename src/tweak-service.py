@@ -22,17 +22,18 @@ if len(CURPATH) <= 2:
     app.logger.error("__file__ too short, setting curpath hard.")
     CURPATH = "/src/"
 
-app.config['UPLOAD_FOLDER'] = CURPATH+"uploads"
-app.config['PROFILE_FOLDER'] = CURPATH+'profiles'
+app.config['UPLOAD_FOLDER'] = os.path.join(CURPATH, "uploads")
+app.config['PROFILE_FOLDER'] = os.path.join(CURPATH, "profiles")
+app.config['DEFAULT_PROFILE'] = os.path.join(app.config['PROFILE_FOLDER'], "/profile_015mm_none.ini")
 app.config['SLIC3R_PATHS'] = ["/Slic3r/slic3r-dist/slic3r", "/home/chris/Documents/software/Slic3r/Slic3rPE-1.41.2+linux64-full-201811221508/slic3r"]
 for path in app.config['SLIC3R_PATHS']:
     if os.path.isfile(path):
         app.config['SLIC3R_PATH'] = path
         break
 
-OCTOPRINT_URL = os.getenv("OCTOPRINT_URL", "http://192.168.48.43/")
-OCTOPRINT_APIKEY = "?apikey=" + os.getenv("OCTOPRINT_APIKEY", "1E7A2CA92550406381A176D9C8C8B0C2")
-app.logger.info("Using octoprint server with url: {}".format(OCTOPRINT_URL))
+OCTOPRINT_URL = os.getenv("OCTOPRINT_URL", "http://localhost:5000/")  # "http://192.168.48.43/")
+OCTOPRINT_APIKEY = "?apikey=" + os.getenv("OCTOPRINT_APIKEY", "A943AB47727A461F9CEF9ECD2E4E1E60")  # "1E7A2CA92550406381A176D9C8C8B0C2")
+# app.logger.info("Using octoprint server with url: {}".format(OCTOPRINT_URL))
 
 
 def allowed_file(filename):
@@ -114,21 +115,46 @@ def tweak_file():
         abort(413)
 
 
+@app.route("/", methods=['GET', 'POST'])
 @app.route("/upload-octoprint", methods=['GET', 'POST'])
 def tweak_slice_file():
     try:
         if request.method == 'POST':
+            # 1) Check if the input is correct
+            # 1.1) Get the model file and check for correctness
             app.logger.debug("request: %s", request)
-            # check if the post request has a file
-            if 'file' not in request.files:
-                flash('No file in request')
+            if 'model' not in request.files:
+                flash('No model file in request')
+            # manage the file
+            uploaded_file = request.files['model']
+            # if no file was selected, submit an empty one
+            if uploaded_file.filename == '':
+                flash('No selected model')
                 return redirect(request.url)
+            if not (uploaded_file and allowed_file(uploaded_file.filename)):
+                flash('Invalid model')
+                return redirect(request.url)
+            filename = secure_filename(uploaded_file.filename)
+            app.logger.info("Uploaded new model: {}".format(filename))
+            uploaded_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            app.logger.info("Saved model to {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
 
-            # Find out if the file is to convert or to tweak
-            command = request.form["command"]
-            # output_format = request.form["profile"]
-            # app.logger.debug("command: {}, output_format: {}".format(command, output_format))
+            # 1.2) Get the profile
+            if 'profile' not in request.files:
+                flash('No profile in request, using default profile')
+            profile = request.files.get("profile", app.config['DEFAULT_PROFILE'])
+            app.logger.info("Using profile: {}".format(profile))
+            if profile.filename == '':
+                flash('No selected model')
+                return redirect(request.url)
+            profile_path = os.path.join(app.config['PROFILE_FOLDER'], secure_filename(profile.filename))
+            profile.save(profile_path)
+            app.logger.info("Saved profile to {}".format(profile_path))
 
+            # 1.3) Get the tweak option
+            # Get the tweak option and use extendedTweak minimize the volume as default
+            command = request.form.get("tweak_option", "extendedTweakVol")
+            app.logger.info("Using Tweaker option {}".format(command))
             cmd_map = dict({"Tweak": "",
                             "extendedTweak": "-x",
                             "extendedTweakVol": "-x -vol",
@@ -136,28 +162,18 @@ def tweak_slice_file():
                             "ascii STL": "-t asciistl",
                             "binary STL": "-t binarystl"})
 
-            # manage the file
-            uploaded_file = request.files['file']
-            # if no file was selected, submit an empty one
-            if uploaded_file.filename == '':
-                flash('No selected file')
-                return redirect(request.url)
-            if not (uploaded_file and allowed_file(uploaded_file.filename)):
-                flash('Invalid file')
-                return redirect(request.url)
+            # 1.4) Get the machinecode_name
+            machinecode_name = request.form.get("machinecode_name", filename.replace(".stl", ".gcode"))
+            gcode_path = os.path.join(app.config["UPLOAD_FOLDER"], machinecode_name)
+            app.logger.info("Machinecode will have name {}".format(machinecode_name))
 
-            filename = secure_filename(uploaded_file.filename)
-            app.logger.info("Uploaded new file: {}".format(filename))
-            uploaded_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            app.logger.info("Saved file to {}/{}".format(app.config['UPLOAD_FOLDER'], filename))
-
-            # Tweak the file
+            # 2) retrieve the model file and perform the tweaking
             cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {upload_folder}{sep}{input} {cmd} " \
-                  "{output} -o {upload_folder}{sep}tweaked_{input}"\
+                  "{output} -o {upload_folder}{sep}tweaked_{input}" \
                 .format(curpath=CURPATH, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
                         cmd=cmd_map[command], output=cmd_map["binary STL"])
 
-            app.logger.info("command: '{}'".format(cmd))
+            app.logger.info("Running Tweak with command: '{}'".format(cmd))
             ret = os.popen(cmd)
             response = ret.read()
             if response == "":
@@ -165,32 +181,33 @@ def tweak_slice_file():
             else:
                 app.logger.error("Tweaking was executed with the warning: {}.".format(response))
 
+            # 3) Slice the tweaked model using Slic3r
             # Slice the file
-            app.logger.info("Using profile: {}".format(request.form["profile"]))
-            profile = app.config['PROFILE_FOLDER'] + os.sep + request.form["profile"]  # "profiles/profile_015mm_none.ini"
-            gcode_path = app.config['UPLOAD_FOLDER'] + os.sep + filename
-            gcode_path = gcode_path.replace(".stl", profile.split(os.sep)[-1].replace("profile_", "_").replace(".ini", ".gcode"))
-
             cmd = "{SLIC3R_PATH} {UPLOAD_FOLDER}{sep}tweaked_{filename} --load {profile} -o {gcode_path}".format(
                 sep=os.sep, SLIC3R_PATH=app.config['SLIC3R_PATH'], UPLOAD_FOLDER=app.config['UPLOAD_FOLDER'],
-                                           filename=filename, profile=profile, gcode_path=gcode_path)
-            app.logger.info(cmd)
-            ret = os.popen(cmd)
-            response = ret.read()
+                filename=filename, profile=profile_path, gcode_path=gcode_path)
+            # TODO improve gcode name
+            app.logger.info("Slicing the tweaked model with command: {}".format(cmd))
+            # ret = os.popen(cmd)
+            response = os.popen(cmd).read()
             if "Done. Process took" in response:
                 app.logger.info("Slicing was successful")
             else:
                 app.logger.error("Slicing was executed with the warning: {}.".format(response))
 
-            # Upload a file via API to octoprint
+            # 4) Redirect the ready gcode
+            # Upload a model via API to octoprint
             # find the apikey in octoprint server, settings, access control
-            url = "{}api/files/local{}".format(OCTOPRINT_URL, OCTOPRINT_APIKEY)
+            app.logger.info("Redirecting processed machinecode to {}".format(request.url))
+            url = "{}api/files/local{}".format(OCTOPRINT_URL, OCTOPRINT_APIKEY)  # Todo check for validity
             outfile = "{gcode_path}".format(gcode_path=gcode_path)
-            files = {'file': open(outfile, 'rb')}
+            app.logger.info("sending file '{}' to URL '{}'".format(outfile, url))
+            files = {'file': open(gcode_path, 'rb')}
             r = requests.post(url, files=files)
-            app.logger.info("Loaded to Octoprint server with code '{}': {}".format(r.status_code, r.json()))
+            app.logger.info("Loaded to Octoprint server with code '{}'".format(r.status_code))  # TODO if code==201...
+            # sys.exit()
+            return redirect(request.url)
 
-            return redirect(OCTOPRINT_URL)
         else:
             return render_template('tweak_slice.html', profiles=os.listdir(app.config['PROFILE_FOLDER']))
     except RequestEntityTooLarge:
@@ -208,4 +225,6 @@ if __name__ == "__main__":
         level = logging.DEBUG
         logging.basicConfig(format=fmt, filename=args.logfile, level=level)
 
+    app.secret_key = 'secret_key'
+    # app.config['SESSION_TYPE'] = 'filesystem'
     app.run(host="0.0.0.0", port=int(args.port), debug=True)

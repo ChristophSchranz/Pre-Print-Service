@@ -106,3 +106,5 @@ src/test.py
 src/tweak-service.py.save*
 src/uploads/*
 !src/uploads/upload_here
+
+src/profiles/slicing-*
