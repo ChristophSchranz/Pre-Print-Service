@@ -16,9 +16,11 @@
         <br>
         Choose the profile
         <br>
+        <td><input type="radio" value=no_slicing name="profile" checked="checked"> No Slicing</td>
+        <br>
         {% for profile in profiles %}
         <tr>
-            <td><input type="radio" value={{profile}} name="profile" checked="checked"> {{profile}}</td>
+            <td><input type="radio" value={{profile}} name="profile"> {{profile}}</td>
             <br>
         </tr>
         {% endfor %}
