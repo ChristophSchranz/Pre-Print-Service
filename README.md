@@ -35,7 +35,21 @@ Each step is optional and can be set in the settings.
    and [Docker Compose](https://docs.docker.com/compose/install/) version **1.6.0+**
    on the more powerful node.
 
-## Install the PrePrint Service
+
+## Quickstart
+
+If you don't want to install docker right now, follow run:
+
+```bash
+cd preprintservice_src
+pip install -r requirements.txt
+git clone https://github.com/ChristophSchranz/Tweaker-3
+python3 tweak-service.py
+```
+
+![Auto-rotation of a model](https://github.com/ChristophSchranz/Tweaker-3/blob/master/auto-rotation.png)
+
+## Deployment in Docker
 
 In order to make the service highly available, it is recommended to deploy the PrePrint Service 
 in docker. If you are

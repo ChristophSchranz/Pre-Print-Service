@@ -101,9 +101,10 @@ ENV/
 # mypy
 .mypy_cache/
 
-src/Tweaker3
-src/tweak-service.py.save*
-src/uploads/*
-!src/uploads/upload_here
+preprintservice_src/Tweaker-3
+preprintservice_src/tweak-service.py.save*
+preprintservice_src/uploads/*
+!preprintservice_src/uploads/upload_here
 
-src/profiles/slicing-*
+preprintservice_src/profiles/slicing-*
+README.md.save*
