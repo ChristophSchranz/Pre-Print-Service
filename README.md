@@ -1,115 +1,116 @@
-# Pre-Print-Service
+# PrePrintService
 
-This service auto-rotates object files into its optimal alignment, slices it and 
-sends it to the [octoprint](https://octoprint.org/) server.
+This service supports your 3D printing workflow by featuring **auto-rotation** 
+and **slicing** functionality.
+It can be executed locally, or, as both tasks are very computation-intensive, 
+also in external docker containers.
 
-The core functionalities are based on 
-[Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) and.
-
-![Auto-rotation of a model](https://github.com/ChristophSchranz/Tweaker-3/blob/master/auto-rotation.png)
-
-More in this [blog](http://www.salzburgresearch.at/blog/3d-print-positioning/).
-
-
-## Quickstart
-
-Using `docker-compose`:
-
-```bash
-git clone https://github.com/ChristophSchranz/Pre-Print-Service
-cd Pre-Print-Service
-./start_service_local.sh
-```
-Use the service on [localhost:2304/upload-octoprint](0.0.0.0:2304/upload-octoprint).
-
-Configure the service in the `config.env`:
-
-    OCTOPRINT_URL=http://192.168.48.44/
-    OCTOPRINT_APIKEY=1E7A2CA...
-
-The apikey can be found in your octoprint server under settings, 
-access control.
+The PrePrint Service is based on:
+* The **auto-rotation** algorithm for FDM 3D print [Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3)
+* The **slicing software** [Slic3r](https://slic3r.org/)
 
 
-## Contents
+## Workflow
 
-1. [Requirements](#requirements)
-2. [Deployment](#deployment)
-4. [Trouble-Shooting](#trouble-shooting)
+The Workflow takes a 3D model file and multiple parameter and outputs a printable machine code.
 
+![Workflow](/extras/workflow.png)
 
+The following steps will be done:
+
+1. Open the basic API of the PrePrint Service or a server GUI 
+that uses it and submit a model file.
+2. The model will be auto-rotated for a proper 3D print.
+3. The auto-rotated model will be sent back to the octoprint server.
+4. The optimized model will be sliced using [Slic3r](https://slic3r.org/).
+5. The final machine code will be sent back to the requester.
+6. The printing can be started.
+
+Each step is optional and can be set in the settings.
 
 ## Requirements
 
-1. Install [Docker](https://www.docker.com/community-edition#/download) version **1.10.0+**
-2. Install [Docker Compose](https://docs.docker.com/compose/install/) version **1.6.0+**
-3. Optionally: [Docker Swarm](https://www.youtube.com/watch?v=x843GyFRIIY)
+1. A server node with at least 2GHz CPU frequency.
+2. Optional: Install [Docker](https://www.docker.com/community-edition#/download) version **1.10.0+**
+   and [Docker Compose](https://docs.docker.com/compose/install/) version **1.6.0+**
+   on the more powerful node.
+
+## Install the PrePrint Service
+
+In order to make the service highly available, it is recommended to deploy the PrePrint Service 
+in docker. If you are
+not familiar with docker yet, have a quick look at the links in the 
+[requirements-section](#requirements).
+
+Then run the application locally with:
+
+    https://github.com/ChristophSchranz/Pre-Print-Service
+    cd PrePrintService
+    docker-compose up --build -d
+    docker-compose logs -f
+     
+Optional: The `docker-compose.yml` is also configured to run in a given 
+[docker swarm](https://www.youtube.com/watch?v=x843GyFRIIY), just
+ adapt the `docker-compose.yml` to your setup and run:
+
+    docker-compose build
+    docker-compose push
+    docker stack deploy --compose-file docker-compose.yml preprintservice
+
+The service is available [localhost:2304/tweak](http://localhost:2304/tweak) 
+(from the hosting node), 
+where a simple UI is provided for testing the PrePrint Service.
+Use `docker-compose down` to stop the service. (If you ever wish ;)
+
+![PrePrint Service](/extras/PrePrintService.png)
 
 
-## Deployment
-It can either be started locally based on `docker-compose` or
-in a cluster based on an existing `docker swarm`.
+## API
 
-### Locally
-The local deployment should be self-explanatory with the commands:
+```python
+import requests
 
-* start_service_local.sh
-* show_service_local.sh
-* stop_service_local.sh
+url = "http://localhost:2304/tweak"
+model_path = 'preprintservice_src/uploads/model.stl'
+profile_path = 'preprintservice_src/profiles/profile_015mm_brim.profile'
+output_path = 'gcode_name.gcode'
+        
+# Auto-rotate file without slicing
+r = requests.post(url, files={'model': open(model_path, 'rb')},
+                  data={"tweak_actions": "tweak"})
 
-Use the service on [localhost:2304](0.0.0.0:2304).
-
-
-### Cluster
-The `docker-compose.yml` expects a running `registration service`
-on port 5001.
-
-If not already done, add a registry instance to register the image
-```bash
-cd /iot-Adapter
-docker service create --name registry --publish published=5001,target=5000 registry:2
-curl 127.0.0.1:5001/v2/
+# Only slice the model to a gcode
+r = requests.post(url, files={'model': open(model_path, 'rb'), 'profile': open(profile_path, 'rb')},
+                  data={"machinecode_name": output_path, "tweak_actions": "slice"})
+# Auto-rotate and slice the model file
+r = requests.post(url, files={'model': open(model_path, 'rb'), 'profile': open(profile_path, 'rb')},
+                  data={"machinecode_name": output_path, "tweak_actions": "tweak slice"})
+print(r.json())
 ```
-This should output `{}`:
 
-Then, use the followings commands can be used:
+## Configuration
 
-* start_service_swarm.sh
-* show_service_swarm.sh
-* stop_service_swarm.sh
+Configure the plugin in the settings and make sure the url for the PrePrint service is 
+correct:
 
-Use the service on [localhost:2304](0.0.0.0:2304).
+To test the setup, do the following steps:
 
+1. Visit [localhost:2304/tweak](http://localhost:2304/tweak), select a stl model file
+   and make an extended Tweak (auto-rotation) `without` slicing. The output should be
+   an auto-rotated (binary) STL model. If not, check the logs of the docker-service
+   using `docker-compose logs -f` in the folder where the `docker-compose.yml` is located.
 
-### Trouble-shooting
-
-#### Can't apt-get update in Dockerfile:
-Restart the service
-
-```sudo service docker restart```
-
-or add the file `/etc/docker/daemon.json` with the content:
-```
-{
-    "dns": [your_dns, "8.8.8.8"]
-}
-```
-where `your_dns` can be found with the command:
-
-```bash
-nmcli device show <interfacename> | grep IP4.DNS
-```
-
-####  Traceback of non zero code 4 or 128:
-
-Restart service with
-```sudo service docker restart```
-
-or add your dns address as described above
-
+2. Now, do the same `with` slicing, the resulting file should be a gcode file of the model.
+   Else, check the logs of the docker-service using `docker-compose logs -f` in the 
+   same folder.
+   
+If you have any troubles in setting this plugin up or tips to improve this instruction,
+ please let me know!
 
 ## Donation
 
-If this project helps you develop, you can give me a cup of coffee :) 
+If you like this software, I would be thankful about a cup of coffee :) 
 
 [![More coffee, more code](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=RG7UBJMUNLMHN&source=url)
+
+Happy Printing!

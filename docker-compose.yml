@@ -4,17 +4,15 @@ services:
   pre-print-service:
     image: 127.0.0.1:5001/pre-print-service
     build:
-      context: src/
+      context: preprintservice_src/
       args:
-        - SLIC3R_URL=https://github.com/prusa3d/Slic3r/releases/download/version_1.41.3/Slic3rPE-1.41.3+linux64-full-201902121303.tar.bz2
-    env_file:
-      - config.env
+        - SLIC3R_VERSION=https://github.com/prusa3d/Slic3r/releases/download/version_1.41.3/Slic3rPE-1.41.3+linux64-full-201902121303.tar.bz2
     ports:
       - 2304:2304
     restart: always
     deploy:
-#      placement:
-#        constraints: [node.role == worker]
+      placement:
+        constraints: [node.role == worker]
       resources:
         limits:
           cpus: "1"

@@ -1,6 +1,8 @@
 import os
 import json
 import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # url = 'http://localhost:2304/upload-octoprint'
 # print(os.getcwd())
@@ -27,21 +29,42 @@ import requests
 # print(r.json())
 
 
-# Delete a file via API
-# find the apikey in octoprint server, settings, access control
-url = "http://localhost:5000/api/files/local/tmpapache_kafka_keychain.gco?apikey=A943AB47727A461F9CEF9ECD2E4E1E60"
-r = requests.delete(url)
-print(r.status_code)
-print(r.text)
-
-
-# # Upload a file via my own API of the tweak-service to octoprint
+# # Delete a file via API
 # # find the apikey in octoprint server, settings, access control
-# url = "http://localhost:2304/upload-octoprint"
-# files = {'file': open('uploads/example001.stl', 'rb')}
-# r = requests.post(url, files=files, data={"command": "extendedTweak", "output": "binary STL"})
+# url = "http://localhost:5000/api/files/local/tmpapache_kafka_keychain.gco?apikey=A943AB47727A461F9CEF9ECD2E4E1E60"
+# r = requests.delete(url)
 # print(r.status_code)
 # print(r.text)
+
+
+# Upload a file via my own API of the tweak-service to octoprint
+# find the apikey in octoprint server, settings, access control
+url = "http://localhost:2304/tweak"
+model_path = 'preprintservice_src/uploads/Plane_t.stl'
+profile_path = 'preprintservice_src/profiles/profile_015mm_brim.profile'
+output_path = 'out.gcode'
+
+# Sending model, profile and gcodename to PrePrintService
+files = {'model': open(model_path, 'rb'),
+         'profile': open(profile_path, 'rb')}  # profile path is wrong (tmp file), but model path is correct
+data = {"machinecode_name": output_path,
+        "tweak_actions": "tweak"}
+
+# r = requests.post(url, files=files, data=data, verify=False)
+# print(r.status_code)
+# # print(r.text)
+
+# Auto-rotate file without slicing
+# r = requests.post(url, files={'model': open(model_path, 'rb')},
+#                   data={"tweak_actions": "tweak"})
+
+# # Only slice the model to a gcode
+# r = requests.post(url, files={'model': open(model_path, 'rb'), 'profile': open(profile_path, 'rb')},
+#                   data={"machinecode_name": output_path, "tweak_actions": "slice"})
+# Auto-rotate and slice the model file
+r = requests.post(url, files={'model': open(model_path, 'rb'), 'profile': open(profile_path, 'rb')},
+                  data={"machinecode_name": output_path, "tweak_actions": "tweak slice"})
+print(r.status_code)
 
 # # Download a file via API
 # # find the apikey in octoprint server, settings, access control
