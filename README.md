@@ -1,18 +1,16 @@
 # PrePrintService
 
-This service supports your 3D printing workflow by featuring **auto-rotation** 
+This service supports your 3D printing workflow by utilizing **auto-rotation** 
 and **slicing** functionality.
-It can be executed locally, or, as both tasks are very computation-intensive, 
-also in external docker containers.
 
 The PrePrint Service is based on:
-* The **auto-rotation** algorithm for FDM 3D print [Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3)
-* The **slicing software** [Slic3r](https://slic3r.org/)
+* The **auto-rotation** software for FDM 3D printing [Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3)
+* The **slicing** software [Slic3r](https://slic3r.org/)
 
 
 ## Workflow
 
-The Workflow takes a 3D model file and multiple parameter and outputs a printable machine code.
+The full workflow can be deployed either on a single machine or on two separated nodes as described below:
 
 ![Workflow](/extras/workflow.png)
 
@@ -20,7 +18,7 @@ The following steps will be done:
 
 1. Open the basic API of the PrePrint Service or a server GUI 
 that uses it and submit a model file.
-2. The model will be auto-rotated for a proper 3D print.
+2. The model will be auto-rotated for a proper 3D print by the [Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) software.
 3. The auto-rotated model will be sent back to the octoprint server.
 4. The optimized model will be sliced using [Slic3r](https://slic3r.org/).
 5. The final machine code will be sent back to the requester.
@@ -121,9 +119,12 @@ To test the setup, do the following steps:
 If you have any troubles in setting this plugin up or tips to improve this instruction,
  please let me know!
 
+
 ## Donation
 
-If you like this software, I would be thankful about a cup of coffee :) 
+This service, as well as the auto-rotation module 
+[Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) was developed in my spare time.
+If you like it, I would be thankful about a cup of coffee :) 
 
 [![More coffee, more code](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=RG7UBJMUNLMHN&source=url)
 
