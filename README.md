@@ -61,18 +61,18 @@ Then run the application locally with:
     docker-compose up --build -d
     docker-compose logs -f
      
-Optional: The `docker-compose.yml` is also configured to run in a given 
+**Optional:** The `docker-compose.yml` is also configured to run in a given 
 [docker swarm](https://www.youtube.com/watch?v=x843GyFRIIY), just
- adapt the `docker-compose.yml` to your setup and run:
+ adapt the config in the file `docker-compose.yml` to your setup and run:
 
     docker-compose build
     docker-compose push
     docker stack deploy --compose-file docker-compose.yml preprintservice
 
-The service is available [localhost:2304/tweak](http://localhost:2304/tweak) 
+The service is available on [localhost:2304/tweak](http://localhost:2304/tweak) 
 (from the hosting node), 
 where a simple UI is provided for testing the PrePrint Service.
-Use `docker-compose down` to stop the service. (If you ever wish ;)
+Use `docker-compose down` to stop the service. (If you ever wish :wink: )
 
 ![PrePrint Service](/extras/PrePrintService.png)
 
@@ -124,7 +124,7 @@ If you have any troubles in setting this plugin up or tips to improve this instr
 
 This service, as well as the auto-rotation module 
 [Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) was developed in my spare time.
-If you like it, I would be thankful about a cup of coffee :) 
+If you like it, I am very thankful about a cup of coffee from you! :) 
 
 [![More coffee, more code](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=RG7UBJMUNLMHN&source=url)
 
