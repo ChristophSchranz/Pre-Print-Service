@@ -19,12 +19,11 @@ The following steps will be done:
 1. Open the basic API of the PrePrint Service or a server GUI 
 that uses it and submit a model file.
 2. The model will be auto-rotated for a proper 3D print by the [Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) software.
-3. The auto-rotated model will be sent back to the octoprint server.
 4. The optimized model will be sliced using [Slic3r](https://slic3r.org/).
 5. The final machine code will be sent back to the requester.
 6. The printing can be started.
 
-Each step is optional and can be set in the settings.
+Each step can be adjusted as described in the settings.
 
 ## Requirements
 
@@ -77,7 +76,29 @@ Use `docker-compose down` to stop the service. (If you ever wish :wink: )
 ![PrePrint Service](/extras/PrePrintService.png)
 
 
-## API
+## Configuration
+
+Configure the plugin in the settings and make sure the url for the PrePrint service is 
+correct:
+
+To test the setup, do the following steps:
+
+1. Visit [localhost:2304/tweak](http://localhost:2304/tweak), select a stl model file
+   and make an extended Tweak (auto-rotation) `without` slicing. The output should be
+   an auto-rotated (binary) STL model. If not, check the logs of the docker-service
+   using `docker-compose logs -f` in the folder where the `docker-compose.yml` is located.
+
+2. Now, do the same `with` slicing, the resulting file should be a gcode file of the model.
+   Else, check the logs of the docker-service using `docker-compose logs -f` in the 
+   same folder.
+   
+If you have any troubles in setting this plugin up or tips to improve this instruction,
+ please let me know!
+ 
+ 
+## PrePrint-Service API
+
+You can use this API to preprocess your models for 3D printing.
 
 ```python
 import requests
@@ -99,25 +120,6 @@ r = requests.post(url, files={'model': open(model_path, 'rb'), 'profile': open(p
                   data={"machinecode_name": output_path, "tweak_actions": "tweak slice"})
 print(r.json())
 ```
-
-## Configuration
-
-Configure the plugin in the settings and make sure the url for the PrePrint service is 
-correct:
-
-To test the setup, do the following steps:
-
-1. Visit [localhost:2304/tweak](http://localhost:2304/tweak), select a stl model file
-   and make an extended Tweak (auto-rotation) `without` slicing. The output should be
-   an auto-rotated (binary) STL model. If not, check the logs of the docker-service
-   using `docker-compose logs -f` in the folder where the `docker-compose.yml` is located.
-
-2. Now, do the same `with` slicing, the resulting file should be a gcode file of the model.
-   Else, check the logs of the docker-service using `docker-compose logs -f` in the 
-   same folder.
-   
-If you have any troubles in setting this plugin up or tips to improve this instruction,
- please let me know!
 
 
 ## Donation
