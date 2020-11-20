@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import os
+import sys
+
 import requests
 import urllib3
 from flask import Flask, flash, request, redirect, url_for, Response, render_template, make_response, jsonify
@@ -14,24 +16,28 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 
 # If the file size is over 100MB, tweaking would lack due to performance issues.
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'stl', '3mf', 'obj'}
 
 # set current path or use /src/, as docker use that path but doesn't know __file__
 CURPATH = os.path.dirname(os.path.abspath(__file__)) + os.sep
 if len(CURPATH) <= 2:
-    app.logger.error("__file__ too short, setting curpath hard.")
+    app.logger.error("__file__ too short, setting curpath to /src/.")
     CURPATH = "/src/"
 
 app.config['UPLOAD_FOLDER'] = os.path.join(CURPATH, "uploads")
 app.config['PROFILE_FOLDER'] = os.path.join(CURPATH, "profiles")
 app.config['DEFAULT_PROFILE'] = os.path.join(app.config['PROFILE_FOLDER'], "profile_015mm_none.ini")
-app.config['SLIC3R_PATHS'] = ["/Slic3r/slic3r-dist/slic3r",
+app.config['SLIC3R_PATHS'] = ["/Slic3r/slic3r-dist/bin/prusa-slicer",
                               "/home/chris/Documents/software/Slic3r/Slic3rPE-1.41.2+linux64-full-201811221508/slic3r"]
 for path in app.config['SLIC3R_PATHS']:
     if os.path.isfile(path):
         app.config['SLIC3R_PATH'] = path
         break
+if 'SLIC3R_PATH' not in app.config:
+    app.logger.warning("The provided Slic3r paths are invalid, please update them for slicing: {}".format(
+        app.config['SLIC3R_PATHS']))
+
 
 
 def allowed_file(filename):
@@ -55,7 +61,7 @@ def tweak_slice_file():
             # 1.1) Get the model file and check for correctness
             if 'model' not in request.files:
                 return jsonify('No model file in request')
-            # manage the file
+            # load the file
             uploaded_file = request.files['model']
             # if no file was selected, submit an empty one
             if uploaded_file.filename == '':
@@ -83,7 +89,7 @@ def tweak_slice_file():
                     profile.save(os.path.join(app.config['PROFILE_FOLDER'], profilename))
                     profile_path = os.path.join(app.config['PROFILE_FOLDER'], profilename)
             else:
-                profile = request.form.get("profile", "no_slicing")
+                profile = request.form.get("profile")
                 if profile == "no_slicing":
                     profile_path = None
                 else:
@@ -110,11 +116,15 @@ def tweak_slice_file():
                 command = "extendedTweakVol"
             app.logger.info("Using Tweaker actions: {}".format(", ".join(tweak_actions)))
             cmd_map = dict({"Tweak": "",
-                            "extendedTweak": "-x",
-                            "extendedTweakVol": "-x -vol",
+                            "extendedTweak": "-x --minimize surfaces",
+                            "extendedTweakVol": "-x",
                             "Convert": "-c",
                             "ascii STL": "-t asciistl",
                             "binary STL": "-t binarystl"})
+            if 'SLIC3R_PATH' not in app.config and "slice" in tweak_actions:
+                app.logger.error("The provided Slic3r paths are invalid, therefore slicing is not possible! {}".format(
+                    app.config['SLIC3R_PATHS']))
+                return redirect(request.url)
 
             # 1.4) Get the machinecode_name, if slicing was chosen
             if profile_path:
@@ -126,19 +136,22 @@ def tweak_slice_file():
 
             # 2.1) retrieve the model file and perform the tweaking
             if "tweak" in tweak_actions:
-                cmd = "python3 {curpath}Tweaker-3{sep}Tweaker.py -i {upload_folder}{sep}{input} {cmd} " \
-                      "{output} -o {upload_folder}{sep}tweaked_{input}".format(
-                    curpath=CURPATH, sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename,
-                    cmd=cmd_map[command], output=cmd_map["binary STL"])
+                cmd = "{pythonpath} {curpath}Tweaker-3{sep}Tweaker.py -i {upload_folder}{sep}{input} {cmd} " \
+                      "{output} -o {upload_folder}{sep}tweaked_{input}".format(pythonpath=sys.executable,
+                                                                               curpath=CURPATH, sep=os.sep,
+                                                                               upload_folder=app.config[
+                                                                                   'UPLOAD_FOLDER'], input=filename,
+                                                                               cmd=cmd_map[command],
+                                                                               output=cmd_map["binary STL"])
 
                 app.logger.info("Running Tweak with command: '{}'".format(cmd))
                 ret = os.popen(cmd)
                 response = ret.read()
                 if response == "":
                     app.logger.info("Tweaking was successful")
+                    filename = "tweaked_{}".format(filename)
                 else:
                     app.logger.error("Tweaking was executed with the warning: {}.".format(response))
-                filename = "tweaked_{}".format(filename)
             else:
                 app.logger.info("Tweaking was skipped as expected.")
 
@@ -152,11 +165,13 @@ def tweak_slice_file():
                 files = {'file': open(outfile, 'rb')}
                 r = requests.post(octoprint_url, files=files, verify=False)
                 if r.status_code == 201:
-                    app.logger.info("Loaded back tweaked stl to server with code '{}'".format(r.status_code))
-                    flash("Loaded back tweaked stl to server with code '{}'".format(r.status_code))
+                    app.logger.info("Sended back tweaked stl to server {} with code '{}'".
+                                    format(octoprint_url.split("?apikey")[0], r.status_code))
+                    flash("Sended back tweaked stl to server {} with code '{}'".format(
+                        octoprint_url.split("?apikey")[0], r.status_code))
                 else:
-                    app.logger.warning(
-                        "Problem while loading tweaked stl to Octoprint server with code '{}'".format(r.status_code))
+                    app.logger.warning("Problem while loading tweaked stl to Octoprint server {} with code '{}'"
+                                       .format(octoprint_url.split("?apikey")[0], r.status_code))
                     # app.logger.warning(r.text)
                     flash("Problem while loading tweaked stl back to server with code '{}'".format(r.status_code))
             else:
@@ -165,7 +180,8 @@ def tweak_slice_file():
             # 3) Slice the tweaked model using Slic3r
             # Slice the file if it is set, else set gcode_path to None
             if profile_path and "slice" in tweak_actions:
-                cmd = "{SLIC3R_PATH} {UPLOAD_FOLDER}{sep}{filename} --load {profile} -o {gcode_path}".format(
+                cmd = "{SLIC3R_PATH} --export-gcode --repair --center 0,0 {UPLOAD_FOLDER}{sep}{filename} " \
+                      "--load {profile} --output {gcode_path}".format(
                     sep=os.sep, SLIC3R_PATH=app.config['SLIC3R_PATH'], UPLOAD_FOLDER=app.config['UPLOAD_FOLDER'],
                     filename=filename, profile=profile_path, gcode_path=gcode_path)
                 app.logger.info("Slicing the tweaked model with command: {}".format(cmd))
@@ -186,30 +202,33 @@ def tweak_slice_file():
                 # Upload a model via API to octoprint
                 # find the apikey in octoprint server, settings, access control
                 # outfile = "{gcode_path}".format(gcode_path=gcode_path)
-                app.logger.info("Sending file '{}' to URL '{}'".format(gcode_path, octoprint_url))
+                app.logger.info("Sending file '{}' to URL '{}'".format(gcode_path, octoprint_url.split("?apikey")[0]))
                 files = {'file': open(gcode_path, 'rb')}
                 r = requests.post(octoprint_url, files=files, verify=False)
                 if r.status_code == 201:
-                    app.logger.info("Loaded back to server with code '{}'".format(r.status_code))
-                    flash("Loaded back to server with code '{}'".format(r.status_code))
+                    app.logger.info("Sended back tweaked stl to server {} with code '{}'".
+                                    format(octoprint_url.split("?apikey")[0], r.status_code))
+                    flash("Sended back tweaked stl to server {} with code '{}'".format(
+                        octoprint_url.split("?apikey")[0], r.status_code))
                 else:
-                    app.logger.warning(
-                        "Problem while loading file to Octoprint server with code '{}'".format(r.status_code))
+                    app.logger.warning("Problem while loading file to Octoprint server {} with code '{}'".format(
+                        octoprint_url.split("?apikey")[0], r.status_code))
                     # app.logger.warning(r.text)
                     flash("Problem while loading file back to server with code '{}'".format(r.status_code))
                 return redirect(octoprint_url)
             else:
-                # handling the download of the binary data, either tweaked stl or gcode
                 if gcode_path:  # model was sliced, return gcode
+                    app.logger.debug("Handling the download of '{}'.".format(gcode_path))
                     if request.headers.get('Accept') == "text/plain":
                         response = Response(open(gcode_path, 'rb').read())
                     else:
                         response = Response(open(gcode_path, 'rb').read(), mimetype='application/octet-stream')
-                        response.headers['Content-Disposition'] = "inline; filename=" + gcode_path
+                        response.headers['Content-Disposition'] = "inline; filename=" + machinecode_name
                     response.headers['Access-Control-Allow-Origin'] = "*"
                 else:  # model was not sliced, return tweaked model
                     tweaked_file_path = "{upload_folder}{sep}{input}".format(
                         sep=os.sep, upload_folder=app.config['UPLOAD_FOLDER'], input=filename)
+                    app.logger.debug("Handling the download of '{}'.".format(tweaked_file_path))
                     if request.headers.get('Accept') == "text/plain":
                         response = Response(open(tweaked_file_path, 'rb').read())
                     else:
