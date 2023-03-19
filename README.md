@@ -1,4 +1,10 @@
-# PrePrintService
+# PrePrintService - deprecated
+___
+
+> **Warning**
+> This repository is no longer maintained. The functionalities have been moved to [Tweaker-3](https://github.com/ChristophSchranz/Tweaker-3) for the REST API and to [Octoprint-PrePrintService](https://github.com/ChristophSchranz/Octoprint-PrePrintService) for a RESTful Tweaker and Slicer endpoint for the OctoPrint platform.
+
+___
 
 This service supports your 3D printing workflow by utilizing **auto-rotation** 
 and **slicing** functionality.
